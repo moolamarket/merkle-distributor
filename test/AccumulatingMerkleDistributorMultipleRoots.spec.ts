@@ -3,7 +3,7 @@ import { solidity, MockProvider, deployContract } from 'ethereum-waffle'
 import { Contract, BigNumber, constants } from 'ethers'
 import BalanceTree from '../src/balance-tree'
 
-import Distributor from '../build/UpdatedAccumulatingMerkleDistributor.json'
+import Distributor from '../build/AccumulatingMerkleDistributorMultipleRoots.json'
 import TestERC20 from '../build/TestERC20.json'
 
 chai.use(solidity)
@@ -16,7 +16,7 @@ const timeout = Date.now() + 10000000;
 const testMerkleRoot1 = '0x0000000000000000000000000000000000000000000000000000000000000001';
 const testMerkleRoot2 = '0x0000000000000000000000000000000000000000000000000000000000000002';
 
-describe('UpdatedAccumulatingMerkleDistributor', () => {
+describe('AccumulatingMerkleDistributorMultipleRoots', () => {
   const provider = new MockProvider({
     ganacheOptions: {
       hardfork: 'istanbul',
@@ -64,7 +64,7 @@ describe('UpdatedAccumulatingMerkleDistributor', () => {
     })
   })
   
-  describe('#updateRoot', () => {
+  describe('#addRoot', () => {
     it('should set the passed in merkle root to true in allowedMerkleRoots', async () => {
       const distributor = await deployContract(
         wallet0,
@@ -73,7 +73,7 @@ describe('UpdatedAccumulatingMerkleDistributor', () => {
         overrides
       )
       expect(await distributor.allowedMerkleRoots(testMerkleRoot1)).to.eq(false);
-      await distributor.updateRoot(testMerkleRoot1);
+      await distributor.addRoot(testMerkleRoot1);
       expect(await distributor.allowedMerkleRoots(testMerkleRoot1)).to.eq(true)
     });
 
@@ -84,9 +84,9 @@ describe('UpdatedAccumulatingMerkleDistributor', () => {
         [token.address, wallet0.address, timeout],
         overrides
       )
-      await distributor.updateRoot(testMerkleRoot1)
-      await expect(distributor.updateRoot(testMerkleRoot1)).to.be.revertedWith(
-        'UpdatedAccumulatingMerkleDistributor: merkleRoot already exists.'
+      await distributor.addRoot(testMerkleRoot1)
+      await expect(distributor.addRoot(testMerkleRoot1)).to.be.revertedWith(
+        'AccumulatingMerkleDistributorMultipleRoots: merkleRoot already exists.'
       )
     })
 
@@ -98,7 +98,7 @@ describe('UpdatedAccumulatingMerkleDistributor', () => {
         overrides
       )
 
-      await expect(distributor.updateRoot(testMerkleRoot1))
+      await expect(distributor.addRoot(testMerkleRoot1))
         .to.emit(distributor, 'RootAdded')
         .withArgs(testMerkleRoot1)
     })
@@ -115,7 +115,7 @@ describe('UpdatedAccumulatingMerkleDistributor', () => {
 
         await expect(
           distributor.recover(token.address, '0x01')
-        ).to.be.revertedWith('UpdatedAccumulatingMerkleDistributor: not timed out yet.')
+        ).to.be.revertedWith('AccumulatingMerkleDistributorMultipleRoots: not timed out yet.')
     })
   })
   
@@ -128,7 +128,7 @@ describe('UpdatedAccumulatingMerkleDistributor', () => {
         { account: wallet1.address, amount: BigNumber.from(101) },
       ])
       distributor = await deployContract(wallet0, Distributor, [token.address, wallet0.address, timeout], overrides)
-      await distributor.updateRoot(tree.getHexRoot())
+      await distributor.addRoot(tree.getHexRoot())
       await token.setBalance(distributor.address, 201)
     })
 
@@ -145,7 +145,7 @@ describe('UpdatedAccumulatingMerkleDistributor', () => {
         .to.emit(distributor, 'Claimed')
         .withArgs(0, wallet0.address, 100, tree.getHexRoot())
 
-      await expect(distributor.claim(0, wallet0.address, 100, tree.getHexRoot(), proof0, overrides)).to.be.revertedWith('UpdatedAccumulatingMerkleDistributor: Drop already claimed.')
+      await expect(distributor.claim(0, wallet0.address, 100, tree.getHexRoot(), proof0, overrides)).to.be.revertedWith('AccumulatingMerkleDistributorMultipleRoots: Drop already claimed.')
     })
 
     it('should update claimedAmount after claiming', async() => {
@@ -164,7 +164,7 @@ describe('UpdatedAccumulatingMerkleDistributor', () => {
         overrides
       )
 
-      await expect(distributor.claim(0, wallet1.address, 10, testMerkleRoot1, [testMerkleRoot1])).to.be.revertedWith('UpdatedAccumulatingMerkleDistributor: Invalid merkleRoot.')
+      await expect(distributor.claim(0, wallet1.address, 10, testMerkleRoot1, [testMerkleRoot1])).to.be.revertedWith('AccumulatingMerkleDistributorMultipleRoots: Invalid merkleRoot.')
     });
 
     it('should revert if merkleProof does not match', async() => {
@@ -181,7 +181,7 @@ describe('UpdatedAccumulatingMerkleDistributor', () => {
           otherTree.getProof(0, wallet1.address, BigNumber.from(300)),
           overrides
         )
-      ).to.be.revertedWith('UpdatedAccumulatingMerkleDistributor: Invalid proof.')
+      ).to.be.revertedWith('AccumulatingMerkleDistributorMultipleRoots: Invalid proof.')
     })
   })
 
@@ -195,7 +195,7 @@ describe('UpdatedAccumulatingMerkleDistributor', () => {
         })
       )
       distributor = await deployContract(wallet0, Distributor, [token.address, wallet0.address, timeout], overrides)
-      await distributor.updateRoot(tree.getHexRoot());
+      await distributor.addRoot(tree.getHexRoot());
       await token.setBalance(distributor.address, 201)
     });
 
@@ -243,7 +243,7 @@ describe('UpdatedAccumulatingMerkleDistributor', () => {
 
     beforeEach('deploy', async () => {
       distributor = await deployContract(wallet0, Distributor, [token.address, wallet0.address, timeout], overrides)
-      await distributor.updateRoot(tree.getHexRoot())
+      await distributor.addRoot(tree.getHexRoot())
       await token.setBalance(distributor.address, constants.MaxUint256)
     })
 
@@ -253,7 +253,7 @@ describe('UpdatedAccumulatingMerkleDistributor', () => {
         await distributor.claim(i, wallet0.address, 100, tree.getHexRoot(), proof, overrides)
         await expect(
           distributor.claim(i, wallet0.address, 100, tree.getHexRoot(), proof, overrides)
-        ).to.be.revertedWith('UpdatedAccumulatingMerkleDistributor: Drop already claimed.')
+        ).to.be.revertedWith('AccumulatingMerkleDistributorMultipleRoots: Drop already claimed.')
       }
     })
 
